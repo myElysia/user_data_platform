@@ -11,7 +11,6 @@ from config.mail import (
 from app.utils.security import validate_password
 
 mail_domains = MAIL_DOMAINS + SELF_DOMAINS
-TOKEN_TYPE = 'Bearer'
 
 
 class BaseModelConfig(BaseModel):
@@ -43,7 +42,25 @@ class UserWriten(BaseModelConfig):
 class User(BaseModel):
     username: str
     email: str
+    phone: str | None
     display_name: str
+
+
+class ThirdPartyOut(BaseModelConfig):
+    id: int | None
+    name: str
+    icon: str | None
+    description: str | None
+    disabled: bool = False
+
+
+class ThirdPartyAccountOut(BaseModelConfig):
+    user: User
+    provider: ThirdPartyOut
+    provider_uid: str
+    access_token: str
+    refresh_token: str
+    expires_at: str
 
 
 class Role(BaseModel):

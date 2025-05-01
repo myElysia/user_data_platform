@@ -16,7 +16,7 @@ class User(WithTimeBase):
         return self.username
 
     class Meta:
-        table = "auth_user"
+        table = "user_user"
 
     def to_dict(self, use_password=False):
         data = {i: getattr(self, i) for i in self.__dict__ if not i.startswith('_')}
@@ -38,15 +38,22 @@ class User(WithTimeBase):
         return [role.role.name for role in roles]
 
 
-class SupportThirdParty(Base):
+class ThirdPartyProvider(Base):
     name = fields.CharField(max_length=255)
-    icon = fields.CharField(max_length=255)
-    description = fields.TextField(null=True)
-    disabled = fields.BooleanField(default=False)
+    icon = fields.CharField(max_length=255, null=True)
+    provider_type = fields.CharField(max_length=20)  # oauth2/saml/oidc
+    client_id = fields.CharField(max_length=255)
+    client_secret = fields.CharField(max_length=255)
+    authorization_url = fields.TextField(null=True)  # 授权端点
+    token_url = fields.TextField(null=True)  # token端点
+    userinfo_url = fields.TextField(null=True)  # 用户信息端点
+    scope = fields.TextField(null=True)  # 默认请求的scope
+    additional_auth_params = fields.JSONField(null=True)  # 额外的认证参数
+    is_active = fields.BooleanField(default=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
-        table = "support_third_party"
+        table = "third_party_provider"
 
     def __str__(self):
         return self.name
@@ -54,7 +61,7 @@ class SupportThirdParty(Base):
 
 class ThirdPartyAccount(WithTimeBase):
     user = fields.ForeignKeyField("models.User", related_name="third_party_accounts")
-    provider = fields.ForeignKeyField("models.Provider", related_name="third_party_accounts")
+    provider = fields.ForeignKeyField("models.ThirdPartyProvider", related_name="third_party_accounts")
     provider_uid = fields.CharField(max_length=50)  # 第三方平台用户id
     access_token = fields.CharField(max_length=255)
     refresh_token = fields.CharField(max_length=255)
@@ -70,7 +77,7 @@ class Role(Base):
     description = fields.CharField(max_length=255)
 
     class Meta:
-        table = "auth_role"
+        table = "user_role"
 
 
 class Permission(Base):
@@ -78,7 +85,7 @@ class Permission(Base):
     description = fields.CharField(max_length=255)
 
     class Meta:
-        table = "auth_permission"
+        table = "user_permission"
 
 
 class RolePermission(Base):
@@ -86,7 +93,7 @@ class RolePermission(Base):
     permission = fields.ForeignKeyField("models.Permission", on_delete=fields.CASCADE, related_name="roles")
 
     class Meta:
-        table = "auth_role_permissions"
+        table = "user_role_permission"
         unique_together = ("role_id", "permission_id")
 
 
@@ -95,5 +102,5 @@ class UserRole(Base):
     role = fields.ForeignKeyField("models.Role", on_delete=fields.CASCADE, related_name="users")
 
     class Meta:
-        table = "auth_role_users"
+        table = "user_user_role"
         unique_together = ("user_id", "role_id")
