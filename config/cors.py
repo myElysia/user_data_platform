@@ -13,7 +13,6 @@ class Settings(EnvSettings):
 
     @property
     def cors_config(self) -> Dict[str, Any]:
-        print(dir(self))
         return {
             "allow_origins": self.ALLOW_ORIGINS,
             "allow_methods": self.ALLOW_METHODS,

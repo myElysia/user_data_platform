@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from tortoise import Tortoise
 
+from app.api.endpoints import router
 from app.middlewares.database import DBCleanupMiddleWare
 from app.utils.prometheus import monitor_db_pool
 from app.utils.healthcheck import HealthCheck
@@ -40,3 +41,4 @@ app.add_middleware(
     **cors_settings.cors_config,
 )
 app.add_middleware(DBCleanupMiddleWare)
+app.include_router(router)

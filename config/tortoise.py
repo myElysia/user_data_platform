@@ -16,10 +16,6 @@ class Settings(EnvSettings):
     CONN_TIMEOUT: int = 30
     CONN_LIFETIME: int = 300
 
-    class Config:
-        env_file = ".env"
-        extra = "ignore"  # 忽略多余的环境变量
-
     # 校验是否存在数据库连接地址
     @field_validator("DB_HOST")
     def validate_db_host(cls, v):
@@ -57,16 +53,7 @@ class Settings(EnvSettings):
     def apps_kw(self) -> Dict[str, Any]:
         return {
             "models": {
-                "models": ["app.db.models", "aerich.models"],
+                "models": ["app.models", "aerich.models"],
                 "default_connection": "default",
             }
         }
-
-
-try:
-    settings = Settings()
-except Exception as e:
-    print(e)
-    import sys
-
-    sys.exit(1)

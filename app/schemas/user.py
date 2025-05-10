@@ -1,9 +1,11 @@
 from pydantic import (
     BaseModel,
     field_validator,
-    SecretStr, EmailStr
+    SecretStr,
+    EmailStr
 )
 
+from app.schemas import BaseModelConfig
 from config.mail import (
     SELF_DOMAINS,
     MAIL_DOMAINS,
@@ -11,11 +13,6 @@ from config.mail import (
 from app.utils.security import validate_password
 
 mail_domains = MAIL_DOMAINS + SELF_DOMAINS
-
-
-class BaseModelConfig(BaseModel):
-    class Config:
-        from_attributes = True  # Pydantic v2 新语法, 允许转换orm
 
 
 class UserWriten(BaseModelConfig):
@@ -68,19 +65,9 @@ class Role(BaseModel):
     description: str | None = ""
 
 
-class UserRole(BaseModelConfig):
-    user_id: int
-    role_id: int
-
-
 class Permission(BaseModel):
     name: str
     description: str | None = ""
-
-
-class RolePermission(BaseModelConfig):
-    role_id: int
-    permission_id: int
 
 
 class PermissionOut(Permission, BaseModelConfig):
@@ -89,9 +76,9 @@ class PermissionOut(Permission, BaseModelConfig):
 
 class RoleOut(Role, BaseModelConfig):
     id: int
-    permissions: list[PermissionOut] = []  # 嵌套权限层
+    permissions: list[PermissionOut] | list[int] | None = []  # 嵌套权限层
 
 
 class UserOut(User, BaseModelConfig):
     id: int
-    roles: list[RoleOut] = []
+    roles: list[RoleOut] | None = []
