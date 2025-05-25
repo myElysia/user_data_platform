@@ -6,7 +6,7 @@ from jose import jwt, JWTError
 from passlib.context import CryptContext
 
 from app.models import User
-from config.settings import Settings
+from app.local.settings import Settings
 
 settings = Settings()
 

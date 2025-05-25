@@ -1,27 +1,25 @@
 import asyncio
-from tortoise import Tortoise
-from tortoise.exceptions import DBConnectionError
+import logging
 
 from app.utils.redis import get_redis
+from app.local.database import Settings as Database
+
+database = Database()
+logger = logging.getLogger('healthcheck')
 
 
 class HealthCheck:
     @staticmethod
     async def check_postgres():
         """检查 PostgreSQL 连接"""
-        try:
-            conn = Tortoise.get_connection("default")
-            await conn.execute_query("SELECT 1")
-            return True
-        except DBConnectionError:
-            return False
+        return await database.healthy()
 
     @staticmethod
     async def check_redis():
         """检查 Redis 连接"""
         try:
             async for redis in get_redis():
-               return await redis.ping()
+                return await redis.ping()
             return None
         except Exception as e:
             print(e)

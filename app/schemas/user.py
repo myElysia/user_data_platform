@@ -6,7 +6,7 @@ from pydantic import (
 )
 
 from app.schemas import BaseModelConfig
-from config.mail import (
+from app.local.mail import (
     SELF_DOMAINS,
     MAIL_DOMAINS,
 )

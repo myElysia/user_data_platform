@@ -1,4 +1,6 @@
+import random
 import re
+import string
 
 
 def validate_password(password: str):
@@ -12,3 +14,7 @@ def validate_password(password: str):
         raise ValueError('密码中缺少数字')
     elif not re.search(r'[!@#$%^&*_]', password):
         raise ValueError('密码中应该包含特殊字符')
+
+
+def generate_random_string(length: int) -> str:
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))

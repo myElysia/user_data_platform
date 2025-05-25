@@ -1,10 +1,10 @@
-from redis.asyncio import Redis, ConnectionPool
+from redis.asyncio import ConnectionPool, Redis
 
-from config.redis import Settings
+from app.local.redis import Settings
 
 settings = Settings()
 
-redis_pool = ConnectionPool(**settings.connection_pool_kw)
+redis_pool = ConnectionPool(**settings.items)
 
 
 async def get_redis():

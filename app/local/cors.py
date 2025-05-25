@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import Dict, Any
 
 from . import EnvSettings
@@ -11,7 +12,11 @@ class Settings(EnvSettings):
     EXPOSE_HEADERS: list[str] = ["*"]  # 允许浏览器访问的响应头（可选）
     MAX_AGE: int = 600  # 预检请求缓存时间（可选）
 
-    @property
+    @cached_property
+    def prefix(self):
+        return ""
+
+    @cached_property
     def cors_config(self) -> Dict[str, Any]:
         return {
             "allow_origins": self.ALLOW_ORIGINS,

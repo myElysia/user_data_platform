@@ -1,6 +1,6 @@
 import time
 
-from config.prometheus import REQUEST_COUNT, REQUEST_LATENCY
+from app.local.prometheus import REQUEST_COUNT, REQUEST_LATENCY
 from main import app
 
 
