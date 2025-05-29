@@ -1,11 +1,13 @@
-from fastapi import APIRouter
-from app.services.user import UserService
+from fastapi import APIRouter, Depends
 
-router = APIRouter(prefix="/v1", )
+from app.models.response import Response
+from app.models.user import UserMixin
+from app.services.user import get_user_service, UserService
+
+router = APIRouter(prefix="/v1")
 
 
-class UserViewSet:
-    @staticmethod
-    @router.get("/user")
-    async def list():
-        return await UserService().query_list()
+@router.get("/user", summary="Get user info")
+async def user_list(user_service: UserService = Depends(get_user_service)) -> Response[UserMixin]:
+    result = await user_service.list()
+    return Response[UserMixin](data=result)

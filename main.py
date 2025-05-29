@@ -62,19 +62,6 @@ async def request_id_wrapper(request: Request, call_next) -> Response:
     return response
 
 
-@app.middleware("http")
-async def request_session_wrapper(request: Request, call_next) -> Response:
-    """
-    session 中间件, 为每个请求注入session
-    :param request:
-    :param call_next:
-    :return:
-    """
-    async with database_settings.session() as session:
-        request.state.session = session
-        return await call_next(request)
-
-
 @app.get("/metrics")
 async def metrics():
     """

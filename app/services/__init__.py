@@ -1,102 +1,104 @@
+from functools import wraps
 from typing import (
     TypeVar,
-    Dict,
-    List,
     Generic,
-    Set,
     Type,
     get_args,
     ClassVar,
     Tuple,
     cast,
-    Union, Optional, Any
+    Callable,
+    Awaitable,
+    Any,
+    get_origin
 )
 
-from pydantic import BaseModel
-from tortoise import Model
-from tortoise.exceptions import DoesNotExist
-from tortoise.transactions import atomic
+from sqlalchemy.exc import NoResultFound
+from sqlmodel import SQLModel, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-_SCHEMA = TypeVar('_SCHEMA', bound=BaseModel)
-_MODEL = TypeVar('_MODEL', bound=Model)
+_MODEL = TypeVar('_MODEL', bound=SQLModel)
 
 
-class BaseService(Generic[_SCHEMA, _MODEL]):
+def atomic(func: Callable[..., Awaitable[Any]]):
+    @wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        # 事务已经实现了rollback方法,不需要额外实现
+        # 另外, commit 通过session实现了,不需要额外实现
+        async with self.session.begin():
+            result = await func(self, *args, **kwargs)
+            # 在事务内刷新
+            if 'data' in kwargs:
+                await self.session.refresh(kwargs['data'])
+            elif 'data' in locals():
+                await self.session.refresh(locals()['data'])
+        return result
+
+    return wrapper
+
+
+class BaseService(Generic[_MODEL]):
+    """
+    基础的服务公共类, 实现了基础的 create/update/delete/select方法
+    """
     __bases__: ClassVar[Tuple[Type[object], ...]]  # 明确类型提示
     __orig_bases__: ClassVar[Tuple[object, ...]]  # 泛型基类信息
+    session: AsyncSession | None = None
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
 
     @classmethod
     def _get_generic_args(cls, index: int) -> Type:
-        # 获取当前类的泛型参数
-        for base in cls.__orig_bases__:  # type: ignore
-            if hasattr(base, "__args__"):
+        for base in cls.__orig_bases__:
+            origin = get_origin(base)
+            if origin and issubclass(origin, Generic):
                 args = get_args(base)
-                if len(args) >= index:
-                    arg = args[index]
-                    if isinstance(arg, type):
-                        return arg
+                if len(args) > index:
+                    return args[index]
         raise NotImplementedError("未指定泛型参数")
 
     @property
-    def schema(self) -> Type[_SCHEMA]:
-        """获取泛型参数中的schema类型"""
-        schema_type = self._get_generic_args(0)
-        return cast(Type[_SCHEMA], schema_type)
-
-    @property
     def model(self) -> Type[_MODEL]:
-        """获取泛型参数中的model类型"""
-        # 获取当前类的泛型参数
-        model_type = self._get_generic_args(1)
+        """获取泛型参数中的模型类型"""
+        model_type = self._get_generic_args(0)
         return cast(Type[_MODEL], model_type)
 
-    def exclude_fields(self, *extra) -> Set[str]:
-        return set(*extra, *self.prefetch_fields)
+    @atomic
+    async def create(self, data: _MODEL):
+        self.session.add(data)
+        await self.session.flush()  # 立即生成 ID
+        db_data = data.model_copy()
+        await self.session.commit()
+        return db_data
 
-    @property
-    def prefetch_fields(self) -> Set[str]:
-        """获取需要预取的关联字段集合（所有类型共有的字段）"""
-        check_fk = ['m2m_fields', 'o2o_fields', 'fk_fields']
-        fields_sets = [set(getattr(self.model, field, set())) for field in check_fk]
-        return set.intersection(*fields_sets) if fields_sets else set()
+    @atomic
+    async def update(self, data: _MODEL):
+        db_data = await self.session.get(self.model, data.id)
+        if not db_data:
+            raise NoResultFound(f"不存在的操作对象id: {self.model.__name__} - {data.id}")
 
-    async def query_list(
-            self,
-            filters: Optional[Dict[str, Any]] = None,
-            order_by: Optional[List[str]] = None,
-            exclude: Optional[Set[str]] = None,
-            limit: Optional[int] = None,
-            offset: Optional[int] = None,
-    ) -> List[_SCHEMA]:
-        queryset = self.model
-        if filters:
-            queryset = queryset.filter(**filters)
-        if order_by:
-            queryset = queryset.order_by(*order_by)
-        if limit is not None:
-            queryset = queryset.limit(limit)
-        if offset is not None:
-            queryset = queryset.offset(offset)
-        objs = await queryset.all().prefetch_related(*self.prefetch_fields)
-        return [self.schema.model_validate(obj).model_dump(exclude=exclude) for obj in objs]
+        for attr, value in data.model_dump(exclude_unset=True).items():
+            setattr(db_data, attr, value)
 
-    async def query_one(self, filters: Dict[str, any]) -> _SCHEMA:
-        queryset = await self.model.filter(**filters).prefetch_related(*self.prefetch_fields).first()
-        return self.schema.model_validate(queryset)
+        await self.session.commit()
+        return data
 
-    @atomic()
-    async def create(self, data: _SCHEMA) -> Union[_SCHEMA, _MODEL]:
-        obj = await self.model.create(**data.model_dump(exclude=self.exclude_fields("id")))
-        return obj
+    @atomic
+    async def delete(self, _id: int):
+        db_data = await self.session.get(self.model, _id)
+        if not db_data:
+            raise NoResultFound(f"不存在的操作对象id: {self.model.__name__} - {_id}")
 
-    @atomic()
-    async def update(self, data: _SCHEMA) -> int:
-        count = await self.model.filter(id=data.id).update(**data.model_dump(exclude=self.exclude_fields("id")))
-        if count == 0:
-            raise DoesNotExist(f"No record found for {data}")
-        return count
+        await self.session.delete(db_data)
 
-    @atomic()
-    async def delete(self, data: list[int]) -> int:
-        count = await self.model.filter(id__in=data).delete()
-        return count
+    async def get(self, _id: int):
+        db_data = await self.session.get(self.model, _id)
+        if not db_data:
+            raise NoResultFound(f"不存在的操作对象id: {self.model.__name__} - {_id}")
+
+        return cast(_MODEL, db_data)
+
+    async def list(self):
+        datas = await self.session.exec(select(self.model))
+        return datas

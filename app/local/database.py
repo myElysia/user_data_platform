@@ -187,8 +187,16 @@ class Settings(EnvSettings):
         return async_engine
 
     @cached_property
-    def async_session(self):
+    def async_session(self) -> async_sessionmaker[AsyncSession]:
         return async_sessionmaker(bind=self.async_engine, class_=AsyncSession, expire_on_commit=False, future=True)
+
+    async def depends(self) -> AsyncGenerator[AsyncSession, None]:
+        """
+        Fastapi 依赖注入实现方法
+        :return:
+        """
+        async with self.async_session() as session:
+            yield session
 
     @asynccontextmanager
     async def session(self) -> AsyncGenerator[AsyncSession, None]:
