@@ -13,11 +13,16 @@ from typing import (
     get_origin
 )
 
+from fastapi.params import Depends
 from sqlalchemy.exc import NoResultFound
 from sqlmodel import SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.local.database import Settings as Session
+
 _MODEL = TypeVar('_MODEL', bound=SQLModel)
+
+session_maker = Session()
 
 
 def atomic(func: Callable[..., Awaitable[Any]]):
@@ -47,6 +52,15 @@ class BaseService(Generic[_MODEL]):
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+
+    def __new__(cls, session: AsyncSession = Depends(session_maker.depends)) -> 'BaseService[_MODEL]':
+        """
+        根据依赖自动注入session
+        :param session: AsyncSession对象
+        """
+        obj = super().__new__(cls)
+        obj.session = session
+        return obj
 
     @classmethod
     def _get_generic_args(cls, index: int) -> Type:
