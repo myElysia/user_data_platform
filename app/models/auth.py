@@ -29,10 +29,14 @@ class ProvideTypeEnum(str, Enum):
 
 
 class GrantType(str, Enum):
-    # 授权方式
-    CODE = "authorization_code"
+    """
+    授权方式
+    """
+    AUTHORIZATION_CODE = "authorization_code"
     IMPLICIT = "implicit"
     PASSWORD = "password"
+    CLIENT_CREDENTIALS = "client_credentials"
+    REFRESH_TOKEN = "refresh_token"
 
 
 class LambdaSanitizer(NodeTransformer):
@@ -104,8 +108,8 @@ class SSOSession(SQLModel, table=True, table_description="单点登录"):
         ).hexdigest()
 
 
-class MFAMethod(SQLModel, table=True, table_description="双因素认证表"):
-    __tablename__ = f"{settings.APP_NAME}_mfa_method"
+class MFASecuity(SQLModel, table=True, table_description="双因素认证表"):
+    __tablename__ = f"{settings.APP_NAME}_mfa_secuity"
 
     id: int = Field(..., sa_column=Column(Integer, autoincrement=True, primary_key=True), allow_mutation=False)
     user_id: int = Field(..., foreign_key=f"{settings.APP_NAME}_user.id")
@@ -211,7 +215,7 @@ class OauthProviderMixin(SQLModel):
     name: Optional[str] = Field("", max_length=50, nullable=False, unique=True, title="第三方平台名称")
     icon: Optional[str] = Field("", max_length=50, nullable=True, title="第三方图标地址")
     provider_type: ProvideTypeEnum = Field(default=ProvideTypeEnum.Oauth, nullable=False, title="认证方式")
-    grant_type: GrantType = Field(default=GrantType.CODE, nullable=False, title="授权方式")
+    grant_type: GrantType = Field(default=GrantType.AUTHORIZATION_CODE, nullable=False, title="授权方式")
     client_id: Optional[str] = Field("", max_length=255, nullable=False, title="第三方Client ID")
     client_secret: Optional[str] = Field("", max_length=500, title="Client Secret",
                                          sa_column=Column(StringEncryptedType(type_in=String,

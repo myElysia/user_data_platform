@@ -12,7 +12,7 @@ from app.models.auth import (
     OauthAccount,
     OAuthState,
     SSOSession,
-    MFAMethod,
+    MFASecuity,
     RevokedToken,
     FieldMapping
 )
