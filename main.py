@@ -3,9 +3,16 @@ import uuid
 from contextlib import asynccontextmanager
 
 import asyncclick
+from alembic.config import Config
+from alembic.command import (
+    revision as alembic_revision,
+    upgrade as alembic_upgrade,
+    downgrade as alembic_downgrade
+)
 import uvicorn
 from fastapi import FastAPI, Request, Response
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from pygments.lexer import default
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.endpoints import router
@@ -21,6 +28,11 @@ database_settings = Database_settings()
 # 全局上下文对象，用于存储 request_id
 request_id = contextvars.ContextVar(settings.APP_NAME)
 
+# alembic迁移配置
+alembic_config = Config()
+alembic_config.set_main_option("script_location", "migrations")
+alembic_config.set_main_option("sqlalchemy.url", database_settings._db_url)
+alembic_config.set_main_option("file_template", "%%(year)d%%(month).2d%%(day).2d_%%(rev)s-%%(slug)s")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -125,23 +137,17 @@ async def db_cli(ctx):
 
 
 @db_cli.command()  # ignore 实际可以执行
-@asyncclick.argument("name", default="migrations", type=str)
-async def init(name):
-    """初始化迁移文件"""
-    print(f"初始化迁移文件成功: {name}")
-
-
-@db_cli.command()  # ignore 实际可以执行
-@asyncclick.option("--manager", "-m", default=f"auto-revision-name", type=str)
-async def revision(manager):
+@asyncclick.option("--message", "-m", default=f"auto-revision-name", type=str)
+async def revision(message: str):
     """创建迁移版本,  --manager -m: 迁移备注"""
-    print(f"{manager}")
+    alembic_revision(alembic_config, message)
 
 
 @db_cli.command()  # ignore 实际可以执行
-async def migrate():
-    """应用迁移"""
-    ...
+@asyncclick.option("--version", "-v", default="heads", type=str)
+async def migrate(version: str):
+    """应用迁移, --version -v: 迁移的版本"""
+    alembic_upgrade(alembic_config, version)
 
 
 @db_cli.command()  # ignore 实际可以执行
@@ -149,8 +155,7 @@ async def migrate():
 async def downgrade(steps):
     """回滚迁移, --steps 回滚步数,默认1"""
     steps = -1 * steps
-    print(f"回滚 {steps} 个迁移")
-
+    alembic_downgrade(alembic_config, steps)
 
 if __name__ == '__main__':
     cli(_anyio_backend="asyncio")

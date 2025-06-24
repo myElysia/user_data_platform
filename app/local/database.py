@@ -136,9 +136,6 @@ def close_metrics():
 
 
 class Settings(EnvSettings):
-    def prefix(self):
-        return "DB_"
-
     APP_NAME: str = ""
     DB_ENGINE: str = 'postgresql+asyncpg'  # 修改为 SQLAlchemy 兼容的引擎格式
     DB_USER: str = ''
@@ -151,17 +148,21 @@ class Settings(EnvSettings):
     DB_COMMAND_TIMEOUT: int = 30
     DB_MAX_INACTIVE_CONNECTION_LIFETIME: int = 300  # 单位：秒
 
+    @cached_property
+    def prefix(self):
+        return "DB_"
+
     @field_validator("DB_MAXSIZE")
     def validate_pool_size(cls, v, info: ValidationInfo):
         if v <= info.data["DB_MINSIZE"]:
             raise ValueError("DB_MAXSIZE must be greater than DB_MINSIZE")
         return v
 
-    @cached_property
+    @property
     def _password(self):
         return quote_plus(self.DB_PASSWORD)
 
-    @cached_property
+    @property
     def _db_url(self) -> str:
         """构建数据库 URL"""
         return (
@@ -169,7 +170,7 @@ class Settings(EnvSettings):
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_DATABASE}"
         )
 
-    @cached_property
+    @property
     def async_engine(self):
         """创建异步引擎（带连接池配置）"""
         max_overflow = self.DB_MAXSIZE - self.DB_MINSIZE
@@ -186,7 +187,7 @@ class Settings(EnvSettings):
         setup_async_db_metrics(async_engine, max_overflow)
         return async_engine
 
-    @cached_property
+    @property
     def async_session(self) -> async_sessionmaker[AsyncSession]:
         return async_sessionmaker(bind=self.async_engine, class_=AsyncSession, expire_on_commit=False, future=True)
 

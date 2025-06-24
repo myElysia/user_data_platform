@@ -8,6 +8,9 @@ from app.models.audit import (
     TransformLog
 )
 from app.models.auth import (
+    CasbinRule,
+    CasbinSystem,
+    CasbinRole,
     OauthProvider,
     OauthAccount,
     OAuthState,

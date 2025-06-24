@@ -16,7 +16,7 @@ class Settings(EnvSettings):
     def prefix(self):
         return ""
 
-    @cached_property
+    @property
     def cors_config(self) -> Dict[str, Any]:
         return {
             "allow_origins": self.ALLOW_ORIGINS,

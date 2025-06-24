@@ -59,6 +59,7 @@ class AsyncLogger(EnvSettings):
     _logger: Logger = PrivateAttr()
     _formatter: ContextAwareFormatter = PrivateAttr()
 
+    @cached_property
     def prefix(self):
         return "LOG_"
 

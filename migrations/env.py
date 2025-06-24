@@ -1,15 +1,16 @@
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
-from alembic import context
-
+from app.local.database import Settings
 from app.models import METADATA
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+async_sessionmaker = Settings()
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -21,6 +22,7 @@ if config.config_file_name is not None:
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 target_metadata = METADATA
+
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -74,7 +76,31 @@ def run_migrations_online() -> None:
             context.run_migrations()
 
 
+async def async_run_migrations_online() -> None:
+    # 从 Settings 实例获取异步引擎
+    engine = async_sessionmaker.async_engine
+
+    # 使用异步引擎执行迁移
+    async with engine.begin() as connection:
+        # 将异步连接转换为同步上下文所需的连接
+        sync_connection = await connection.get_raw_connection()
+
+        print(sync_connection)
+        # 配置 Alembic 上下文
+        context.configure(
+            connection=sync_connection.driver_connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+        )
+
+        # 在事务中运行迁移
+        with context.begin_transaction():
+            context.run_migrations()
+
+
 if context.is_offline_mode():
     run_migrations_offline()
 else:
-    run_migrations_online()
+    import asyncio
+    print("test")
+    asyncio.run(async_run_migrations_online())

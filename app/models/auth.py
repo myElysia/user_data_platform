@@ -5,7 +5,7 @@ from hashlib import sha256
 from types import MappingProxyType
 from typing import Optional, List
 
-from sqlalchemy import Index, Column, Integer, String, DateTime, func, UniqueConstraint, JSON, Boolean
+from sqlalchemy import Index, Column, Integer, String, DateTime, func, UniqueConstraint, JSON, Boolean, Enum as SQLEnum
 from sqlalchemy_utils import StringEncryptedType
 from sqlalchemy_utils.types.encrypted.encrypted_type import FernetEngine
 from sqlmodel import SQLModel, Field, Relationship
@@ -51,6 +51,54 @@ class LambdaSanitizer(NodeTransformer):
         if isinstance(node.value, Name) and node.value.id == 'x':
             return node  # 允许 x.attribute
         raise ValueError("Disallowed attribute access")
+
+
+class PtypeEnum(str, Enum):
+    Policy = "p"  # Policy Rule, 定义具体访问规则
+    Grouping = "g"  # Grouping 角色定义规则
+
+
+class CasbinRule(SQLModel, table=True, table_description="casbin规则表"):
+    """Casbin 规则存储表"""
+    __tablename__ = f"{settings.APP_NAME}_casbin_rule"  # 应用前缀避免冲突
+
+    id: int = Field(primary_key=True)
+
+    # 使用SQLAlchemy的Enum类型确保数据库兼容性
+    ptype: PtypeEnum = Field(
+        default=PtypeEnum.Policy,
+        sa_column=Column(SQLEnum(PtypeEnum))
+    )
+
+    # Casbin 策略需要5个标准字段 + 可选字段
+    v0: str = Field(max_length=255, default="", description="主体(用户/角色)")
+    v1: str = Field(max_length=255, default="", description="域/租户/系统")
+    v2: Optional[str] = Field(max_length=255, default="", description="模块/资源类型")
+    v3: Optional[str] = Field(max_length=255, default="", description="资源实例")
+    v4: Optional[str] = Field(max_length=255, default="", description="操作")
+
+    # 可选：添加索引提高查询性能
+    __table_args__ = (
+        Index('idx_ptype', 'ptype'),
+        Index('idx_v0', 'v0'),
+        Index('idx_v1_v2', 'v1', 'v2'),
+    )
+
+
+class CasbinSystem(SQLModel, table=True, table_description="casbin 系统定义表"):
+    __tablename__ = f"{settings.APP_NAME}_casbin_system"
+
+    id: int = Field(primary_key=True)
+    name: str = Field(max_length=255, default="", description="系统名称", unique=True)
+    description: Optional[str] = Field(max_length=255, default="", description="系统描述")
+
+
+class CasbinRole(SQLModel, table=True, table_description="casbin 角色表"):
+    __tablename__ = f"{settings.APP_NAME}_casbin_role"
+
+    id: int = Field(primary_key=True)
+    name: str = Field(max_length=255, default="", description="角色名称", unique=True)
+    description: Optional[str] = Field(max_length=255, default="", description="备注")
 
 
 class SSOSession(SQLModel, table=True, table_description="单点登录"):
