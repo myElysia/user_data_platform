@@ -1,4 +1,5 @@
 import contextvars
+import os
 import uuid
 from contextlib import asynccontextmanager
 
@@ -12,7 +13,6 @@ from alembic.command import (
 import uvicorn
 from fastapi import FastAPI, Request, Response
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
-from pygments.lexer import default
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.endpoints import router
@@ -28,6 +28,12 @@ database_settings = Database_settings()
 # 全局上下文对象，用于存储 request_id
 request_id = contextvars.ContextVar(settings.APP_NAME)
 
+# 获取当前文件的绝对路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# 设置正确的 migrations 路径
+migrations_path = os.path.join(current_dir, "migrations")
+alembic_config = Config()
+alembic_config.set_main_option("script_location", migrations_path)
 # alembic迁移配置
 alembic_config = Config()
 alembic_config.set_main_option("script_location", "migrations")
@@ -140,22 +146,25 @@ async def db_cli(ctx):
 @asyncclick.option("--message", "-m", default=f"auto-revision-name", type=str)
 async def revision(message: str):
     """创建迁移版本,  --manager -m: 迁移备注"""
-    alembic_revision(alembic_config, message)
+    # 强制导入模型以确保元数据加载
+    import asyncio
+    await asyncio.to_thread(alembic_revision, alembic_config, message, autogenerate=True)
 
 
 @db_cli.command()  # ignore 实际可以执行
 @asyncclick.option("--version", "-v", default="heads", type=str)
 async def migrate(version: str):
     """应用迁移, --version -v: 迁移的版本"""
-    alembic_upgrade(alembic_config, version)
+    import asyncio
+    await asyncio.to_thread(alembic_upgrade, alembic_config, version)
 
 
 @db_cli.command()  # ignore 实际可以执行
 @asyncclick.option("--steps", type=int, default=1, help="回滚步数")
 async def downgrade(steps):
     """回滚迁移, --steps 回滚步数,默认1"""
-    steps = -1 * steps
-    alembic_downgrade(alembic_config, steps)
+    import asyncio
+    await asyncio.to_thread(alembic_downgrade, alembic_config, f"-{steps}")
 
 if __name__ == '__main__':
     cli(_anyio_backend="asyncio")

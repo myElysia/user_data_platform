@@ -77,30 +77,31 @@ def run_migrations_online() -> None:
 
 
 async def async_run_migrations_online() -> None:
-    # 从 Settings 实例获取异步引擎
     engine = async_sessionmaker.async_engine
-
-    # 使用异步引擎执行迁移
     async with engine.begin() as connection:
-        # 将异步连接转换为同步上下文所需的连接
-        sync_connection = await connection.get_raw_connection()
+        await connection.run_sync(do_run_migrations)
 
-        print(sync_connection)
-        # 配置 Alembic 上下文
-        context.configure(
-            connection=sync_connection.driver_connection,
-            target_metadata=target_metadata,
-            compare_type=True,
-        )
 
-        # 在事务中运行迁移
-        with context.begin_transaction():
-            context.run_migrations()
+def do_run_migrations(connection):
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_type=True,
+    )
+    with context.begin_transaction():
+        context.run_migrations()
 
 
 if context.is_offline_mode():
     run_migrations_offline()
 else:
     import asyncio
-    print("test")
-    asyncio.run(async_run_migrations_online())
+
+    try:
+        # 尝试获取当前运行的事件循环
+        loop = asyncio.get_running_loop()
+        # 如果已经有事件循环在运行，使用 run_until_complete
+        loop.create_task(async_run_migrations_online())
+    except RuntimeError:
+        # 如果没有事件循环在运行，使用 asyncio.run
+        asyncio.run(async_run_migrations_online())
