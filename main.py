@@ -20,6 +20,7 @@ from app.local.cors import Settings as Cors_settings
 from app.local.database import Settings as Database_settings, close_metrics
 from app.local.settings import Settings
 from app.utils.healthcheck import HealthCheck
+from app.utils.security import SystemEnforcer
 
 settings = Settings()
 cors_settings = Cors_settings()
@@ -29,13 +30,12 @@ database_settings = Database_settings()
 request_id = contextvars.ContextVar(settings.APP_NAME)
 
 # 获取当前文件的绝对路径
-current_dir = os.path.dirname(os.path.abspath(__file__))
+ABS_PATH = os.path.dirname(os.path.abspath(__file__))
 # 设置正确的 migrations 路径
-migrations_path = os.path.join(current_dir, "migrations")
+migrations_path = os.path.join(ABS_PATH, "migrations")
 alembic_config = Config()
 alembic_config.set_main_option("script_location", migrations_path)
 # alembic迁移配置
-alembic_config = Config()
 alembic_config.set_main_option("script_location", "migrations")
 alembic_config.set_main_option("sqlalchemy.url", database_settings._db_url)
 alembic_config.set_main_option("file_template", "%%(year)d%%(month).2d%%(day).2d_%%(rev)s-%%(slug)s")

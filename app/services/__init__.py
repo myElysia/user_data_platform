@@ -59,7 +59,7 @@ class BaseService(Generic[_MODEL]):
         :param session: AsyncSession对象
         """
         obj = super().__new__(cls)
-        obj.session = session
+        obj.__init(session)
         return obj
 
     @classmethod
