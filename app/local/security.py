@@ -8,6 +8,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import CasbinRule
+from app.utils.loop import async_func
 
 # casbin属性列表
 casbin_attrs = ["ptype", *[f"v{i}" for i in range(6)]]
@@ -127,24 +128,19 @@ class Settings:
         return cls._enforcer
 
     @classmethod
-    def load_policy(cls):
+    @async_func
+    def load_policy(cls, async_runner: callable) -> Never:
         """
         初始化策略, 通过开启一个协程循环的方式进行加载
         :return:
         """
-        import asyncio
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
         except_ = None
         while (retry := 0) < 3:
             try:
-                loop.run_until_complete(cls._enforcer.load_policy())
+                async_runner(cls._enforcer.load_policy())
             except Exception as e:
                 retry += 1
                 except_ = e
 
-        loop.close()
         if except_:
             raise except_
