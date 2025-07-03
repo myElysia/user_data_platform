@@ -145,5 +145,6 @@ class Settings:
                 retry += 1
                 except_ = e
 
+        loop.close()
         if except_:
             raise except_
