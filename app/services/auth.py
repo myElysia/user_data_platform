@@ -5,10 +5,10 @@ from app.local.security import Settings as CasbinFactory
 from app.models import (
     CasbinRule
 )
-from app.services import BaseService
+from app.services import ModelService
 
 
-class PolicyService(BaseService[CasbinRule]):
+class PolicyService(ModelService[CasbinRule]):
     _enforcer: AsyncEnforcer
 
     def __init__(self, session: AsyncSession):

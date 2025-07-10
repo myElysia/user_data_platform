@@ -4,6 +4,13 @@ from functools import wraps, partial
 def async_func(func):
     """
     通过注入loop实现在同步代码中可以运行异步代码
+    使用方法:
+    async def test(*args, **kwargs):
+        ...
+
+    @async_func
+    def func(async_runner: callable, *args, **kwargs):
+        async_runner(test(*args, **kwargs))
     :param func:
     :return:
     """

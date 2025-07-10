@@ -1,6 +1,6 @@
 from app.models import User
-from app.services import BaseService
+from app.services import ModelService
 
 
-class UserService(BaseService[User]):
+class UserService(ModelService[User]):
     ...

@@ -161,7 +161,7 @@ class MFASecuity(SQLModel, table=True, table_description="双因素认证表"):
 
     id: int = Field(..., sa_column=Column(Integer, autoincrement=True, primary_key=True), allow_mutation=False)
     user_id: int = Field(..., foreign_key=f"{settings.APP_NAME}_user.id")
-    user: "User" = Relationship(back_populates="mfa_methods")
+    user: "User" = Relationship(back_populates="mfa_secuity")
     method_type: str  # "TOTP", "SMS", "Email"
     secret: str  # 加密存储（如TOTP密钥）
     is_active: bool

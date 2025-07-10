@@ -47,10 +47,14 @@ class User(UserMixin, table=True, table_description="用户表"):
     email_verified: bool = False
     phone_verified: bool = False
     # 以下是外键列表
-    oauth_accounts: List["OauthAccount"] = Relationship(back_populates="user")
-    tokens: List["Token"] = Relationship(back_populates="user")
+    # SSO_Session
+    sso_sessions: List["SSOSession"] = Relationship(back_populates="user")
     # MFA认证, 支持短信/MAIL
     mfa_secuity: List["MFASecuity"] = Relationship(back_populates="user")
+    # oauth_accounts
+    oauth_accounts: List["OauthAccount"] = Relationship(back_populates="user")
+    # 审计日志
+    audit_logs: List["AuditLog"] = Relationship(back_populates="user")
 
     # 去除密码字段,仅在模型中可读写
     model_config = {

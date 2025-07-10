@@ -1,16 +1,15 @@
-import contextvars
 import os
 import uuid
 from contextlib import asynccontextmanager
 
 import asyncclick
-from alembic.config import Config
+import uvicorn
 from alembic.command import (
     revision as alembic_revision,
     upgrade as alembic_upgrade,
     downgrade as alembic_downgrade
 )
-import uvicorn
+from alembic.config import Config
 from fastapi import FastAPI, Request, Response
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from starlette.middleware.cors import CORSMiddleware
@@ -18,16 +17,14 @@ from starlette.middleware.cors import CORSMiddleware
 from app.api.endpoints import router
 from app.local.cors import Settings as Cors_settings
 from app.local.database import Settings as Database_settings, close_metrics
+from app.local.log import AsyncLogger
 from app.local.settings import Settings
 from app.utils.healthcheck import HealthCheck
-from app.utils.security import SystemEnforcer
 
 settings = Settings()
 cors_settings = Cors_settings()
 database_settings = Database_settings()
-
-# 全局上下文对象，用于存储 request_id
-request_id = contextvars.ContextVar(settings.APP_NAME)
+logger = AsyncLogger.get_logger(**{"name": __name__})
 
 # 获取当前文件的绝对路径
 ABS_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -40,15 +37,15 @@ alembic_config.set_main_option("script_location", "migrations")
 alembic_config.set_main_option("sqlalchemy.url", database_settings._db_url)
 alembic_config.set_main_option("file_template", "%%(year)d%%(month).2d%%(day).2d_%%(rev)s-%%(slug)s")
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
-        # 进行健康检查,防止数据库或者Redis崩溃
+        # 进行健康检查,防止数据库或者Redis在运行前出现问题
         await HealthCheck.run_all()
-
         yield
     except Exception as e:
-        print(f"Lifespan error: {e}")
+        await logger.error(e)
         raise e
     finally:
         await database_settings.close_all()
@@ -74,7 +71,7 @@ async def request_id_wrapper(request: Request, call_next) -> Response:
     """
     # 生成 UUID
     unique_id = str(uuid.uuid4())
-    request_id.set(unique_id)
+    request.state.request_id = unique_id
     # 继续处理请求并返回响应
     response = await call_next(request)
     # 往响应中加入 request_id
@@ -165,6 +162,7 @@ async def downgrade(steps):
     """回滚迁移, --steps 回滚步数,默认1"""
     import asyncio
     await asyncio.to_thread(alembic_downgrade, alembic_config, f"-{steps}")
+
 
 if __name__ == '__main__':
     cli(_anyio_backend="asyncio")

@@ -1,4 +1,3 @@
-from asyncio import Lock
 from enum import Enum
 from typing import Never, Any
 
@@ -20,7 +19,6 @@ class PtypeEnum(str, Enum):
 
 
 class DBAdapter(AsyncAdapter):
-    _lock: Lock = Lock()  # 协程锁保证数据安全
     session: AsyncSession = None
 
     def __init__(self, session: AsyncSession):
@@ -49,15 +47,14 @@ class DBAdapter(AsyncAdapter):
         :param model:
         :return:
         """
-        async with self._lock:
-            model_policy = await self._extract_policy_from_model(model)
+        model_policy = await self._extract_policy_from_model(model)
 
-            db_result = await self._extract_policy_from_db(self.session)
-            db_policy = set(db_result.keys())
+        db_result = await self._extract_policy_from_db(self.session)
+        db_policy = set(db_result.keys())
 
-            to_add = model_policy - db_policy
+        to_add = model_policy - db_policy
 
-            to_delete = db_policy - model_policy
+        to_delete = db_policy - model_policy
 
     @staticmethod
     async def _extract_policy_from_model(model: Model) -> set[tuple[Any, Any]]:

@@ -10,7 +10,7 @@ from typing import (
     Callable,
     Awaitable,
     Any,
-    get_origin
+    get_origin, Self
 )
 
 from fastapi.params import Depends
@@ -42,25 +42,31 @@ def atomic(func: Callable[..., Awaitable[Any]]):
     return wrapper
 
 
-class BaseService(Generic[_MODEL]):
+class BaseService:
     """
-    基础的服务公共类, 实现了基础的 create/update/delete/select方法
+    服务基础类, 实现了session注入
     """
-    __bases__: ClassVar[Tuple[Type[object], ...]]  # 明确类型提示
-    __orig_bases__: ClassVar[Tuple[object, ...]]  # 泛型基类信息
     session: AsyncSession | None = None
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    def __new__(cls, session: AsyncSession = Depends(session_maker.depends)) -> 'BaseService[_MODEL]':
+    def __new__(cls, session: AsyncSession = Depends(session_maker.depends)) -> Self:
         """
-        根据依赖自动注入session
-        :param session: AsyncSession对象
-        """
+                根据依赖自动注入session, 确保继承自基类的服务类可以有session
+                :param session: AsyncSession对象
+                """
         obj = super().__new__(cls)
-        obj.__init(session)
+        obj.__init__(session)
         return obj
+
+
+class ModelService(BaseService, Generic[_MODEL]):
+    """
+    服务模型公共类, 实现了基础的 create/update/delete/select方法
+    """
+    __bases__: ClassVar[Tuple[Type[object], ...]]  # 明确类型提示
+    __orig_bases__: ClassVar[Tuple[object, ...]]  # 泛型基类信息
 
     @classmethod
     def _get_generic_args(cls, index: int) -> Type:
@@ -115,4 +121,4 @@ class BaseService(Generic[_MODEL]):
 
     async def list(self):
         datas = await self.session.exec(select(self.model))
-        return datas
+        return datas.all()

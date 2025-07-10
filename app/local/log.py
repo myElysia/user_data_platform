@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 from aiologger import Logger
 from aiologger.formatters.json import ExtendedJsonFormatter
-from aiologger.handlers.files import AsyncFileHandler
+from aiologger.handlers.files import AsyncTimedRotatingFileHandler, RolloverInterval
 from aiologger.handlers.streams import AsyncStreamHandler
 from aiologger.records import LogRecord
 from pydantic import PrivateAttr
@@ -89,9 +89,11 @@ class AsyncLogger(EnvSettings):
         )
 
         # 文件处理器（始终异步）
-        file_handler = AsyncFileHandler(
+        file_handler = AsyncTimedRotatingFileHandler(
             filename=str(self.__log_file),
-            encoding="utf-8"
+            when=RolloverInterval.DAYS,
+            encoding="utf-8",
+            backup_count=15,
         )
         file_handler.formatter = self._formatter
         self._logger.add_handler(file_handler)
@@ -119,10 +121,10 @@ class AsyncLogger(EnvSettings):
         return self._logger
 
     @classmethod
-    def get_logger(cls, **values: Dict[str, Any]) -> "AsyncLogger":
+    def get_logger(cls, **values: Dict[str, Any]) -> Logger:
         logger = cls()
         logger.set_context(**values)
-        return logger
+        return logger.raw_logger
 
     def set_context(self, **values: Dict[str, Any]) -> None:
         self._formatter.add_context(**values)
