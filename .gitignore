@@ -2,5 +2,9 @@
 .env
 __pycache__
 .idea
+run_logs
+run_logs/*
 
 test.http
+_tmp*
+*.db

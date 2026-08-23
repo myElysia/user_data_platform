@@ -14,16 +14,20 @@ from fastapi import FastAPI, Request, Response
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from starlette.middleware.cors import CORSMiddleware
 
-from app.api.endpoints import router
-from app.local.cors import Settings as Cors_settings
-from app.local.database import Settings as Database_settings, close_metrics
-from app.local.log import AsyncLogger
-from app.local.settings import Settings
-from app.utils.healthcheck import HealthCheck
+from app.interface.api.endpoints import router, oidc_router, admin_router
+from app.infrastructure.config.cors import CorsSettings
+from app.infrastructure.config.app import AppSettings
+from app.infrastructure.database import DatabaseManager, close_metrics
+from app.infrastructure.log import AsyncLogger
+from app.interface.middlewares.prometheus import register_monitor_middleware
+from app.interface.middlewares.rate_limit import register_rate_limit_middleware
+from app.interface.middlewares.exception_handler import register_exception_handlers
+from app.interface.middlewares.security_headers import register_security_headers
+from app.infrastructure.utils.healthcheck import HealthCheck
 
-settings = Settings()
-cors_settings = Cors_settings()
-database_settings = Database_settings()
+app_settings = AppSettings()
+cors_settings = CorsSettings()
+database_manager = DatabaseManager()
 logger = AsyncLogger.get_logger(**{"name": __name__})
 
 # 获取当前文件的绝对路径
@@ -32,9 +36,7 @@ ABS_PATH = os.path.dirname(os.path.abspath(__file__))
 migrations_path = os.path.join(ABS_PATH, "migrations")
 alembic_config = Config()
 alembic_config.set_main_option("script_location", migrations_path)
-# alembic迁移配置
-alembic_config.set_main_option("script_location", "migrations")
-alembic_config.set_main_option("sqlalchemy.url", database_settings._db_url)
+alembic_config.set_main_option("sqlalchemy.url", database_manager._settings.db_url)
 alembic_config.set_main_option("file_template", "%%(year)d%%(month).2d%%(day).2d_%%(rev)s-%%(slug)s")
 
 
@@ -48,17 +50,31 @@ async def lifespan(app: FastAPI):
         await logger.error(e)
         raise e
     finally:
-        await database_settings.close_all()
+        await database_manager.close_all()
         # 清理指标监控
         close_metrics()
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan,
+    title="Zero Trust OIDC Platform",
+    description="零信任 OIDC 用户中台 — 类 GitHub OAuth Apps 的系统接入能力",
+    version="0.2.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+)
 app.add_middleware(
     CORSMiddleware,
     **cors_settings.cors_config,
 )
+register_monitor_middleware(app)
+register_rate_limit_middleware(app)
+register_exception_handlers(app)
+register_security_headers(app)
 app.include_router(router)
+app.include_router(oidc_router)
+app.include_router(admin_router)
 
 
 @app.middleware("http")
@@ -127,6 +143,25 @@ async def start_server(host, port, reload, log_level):
         reload_delay=5,
         log_level=log_level
     )
+
+
+@cli.command("worker")
+@asyncclick.option("--max-jobs", default=10, type=int, help="并发任务数")
+async def start_worker(max_jobs: int):
+    """启动 ARQ 后台任务 worker（生产模式，需要 Redis；不可用时请直接运行 start，任务将进程内降级执行）"""
+    import arq
+    from app.infrastructure.messaging.worker import build_worker_settings
+
+    settings = build_worker_settings()
+    settings["max_jobs"] = max_jobs
+    worker = arq.Worker(**settings)
+    try:
+        asyncclick.echo(f"ARQ worker 启动中 (Redis {settings['redis_settings'].host}:{settings['redis_settings'].port})...")
+        await worker.async_run()
+    except Exception as e:
+        asyncclick.echo(f"ARQ worker 启动失败（Redis 不可用？）: {e}")
+        ctx = asyncclick.get_current_context()
+        ctx.exit(1)
 
 
 # 修改3：将db_cli注册为cli的子组

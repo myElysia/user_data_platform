@@ -4,13 +4,13 @@ from alembic import context
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
-from app.local.database import Settings
-from app.models import METADATA
+from app.infrastructure.database import DatabaseManager
+from app.infrastructure.persistence.models import METADATA
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-async_sessionmaker = Settings()
+db = DatabaseManager()
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -77,7 +77,7 @@ def run_migrations_online() -> None:
 
 
 async def async_run_migrations_online() -> None:
-    engine = async_sessionmaker.async_engine
+    engine = db.engine
     async with engine.begin() as connection:
         await connection.run_sync(do_run_migrations)
 
@@ -97,11 +97,5 @@ if context.is_offline_mode():
 else:
     import asyncio
 
-    try:
-        # 尝试获取当前运行的事件循环
-        loop = asyncio.get_running_loop()
-        # 如果已经有事件循环在运行，使用 run_until_complete
-        loop.create_task(async_run_migrations_online())
-    except RuntimeError:
-        # 如果没有事件循环在运行，使用 asyncio.run
-        asyncio.run(async_run_migrations_online())
+    # 统一使用 asyncio.run() 避免嵌套事件循环问题
+    asyncio.run(async_run_migrations_online())
