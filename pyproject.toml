@@ -1,0 +1,44 @@
+[project]
+name = "user_data_platform"
+version = "0.2.0"
+description = "零信任 OIDC 用户中台 — Zero Trust OpenID Connect User Platform"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+
+dependencies = [
+    "fastapi>=0.115.12",
+    "uvicorn>=0.34.2",
+    "sqlmodel>=0.0.24",
+    "sqlalchemy>=2.0.40",
+    "asyncpg>=0.30.0",
+    "alembic>=1.16.2",
+    "pydantic>=2.11.3",
+    "pydantic-settings>=2.9.1",
+    "aiologger>=0.7.0",
+    "redis>=5.2.1",
+    "casbin>=1.43.0",
+    "python-jose>=3.4.0",
+    "bcrypt>=4.3.0",
+    "prometheus-client>=0.21.1",
+    "asyncclick>=8.1.8.0",
+    "SQLAlchemy-Utils>=0.41.2",
+    "cryptography>=45.0.1",
+    "pyotp>=2.9.0",
+    "httpx>=0.28.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "httpx>=0.28",
+]
+
+[tool.uvicorn]
+host = "0.0.0.0"
+port = 8000
+log_level = "info"
+
+[tool.alembic]
+script_location = "migrations"
+file_template = "%%(year)d%%(month).2d%%(day).2d_%%(rev)s-%%(slug)s"

@@ -1,0 +1,16 @@
+// ============================================================
+// 全局 SCSS 变量 & CSS 自定义属性
+// ============================================================
+
+// 自定义 CSS 变量
+:root {
+  --sidebar-width: 220px;
+  --sidebar-collapsed-width: 64px;
+  --header-height: 56px;
+}
+
+// Element Plus 暗色模式变量
+html.dark {
+  --el-bg-color: #141414;
+  --el-bg-color-page: #0a0a0a;
+}
